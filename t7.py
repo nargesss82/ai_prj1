@@ -297,7 +297,7 @@ def create_generation_report(generation_data):
 
 
 def execute_genetic_algorithm(population_size=50, max_generations=100, mutation_rate=0.01,
-                              w1=1, w2=0.01, budget=None):
+                             w1=1.0000, w2=0.0100, budget=None):
     demand = [80, 90, 65, 70]
     capacity = [20, 15, 35, 40, 15, 15, 10]
     maintenance_costs = [
@@ -416,8 +416,8 @@ def main():
         population_size = st.number_input("Population Size", min_value=10, max_value=500, value=50)
         max_generations = st.number_input("Max Generations", min_value=10, max_value=1000, value=100)
         mutation_rate = st.number_input("Mutation Rate", min_value=0.0, max_value=1.0, value=0.01, step=0.01)
-        w1 = st.number_input("w1 (Net Reserve Weight)", min_value=0.0, max_value=10.0, value=1.0, step=0.1)
-        w2 = st.number_input("w2 (Cost Weight)", min_value=0.0, max_value=1.0, value=0.01, step=0.01)
+        w1 = st.number_input("w1 (Net Reserve Weight)", min_value=0.0, max_value=10.0, value=1.0, step=0.0001,format="%.4f")
+        w2 = st.number_input("w2 (Cost Weight)", min_value=0.0, max_value=1.0, value=0.01, step=0.0001, format="%.4f")
         budget = st.number_input("Budget (optional)", min_value=0, value=1000)
 
         if st.button("Run Algorithm"):
