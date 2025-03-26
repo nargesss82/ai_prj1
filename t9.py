@@ -174,21 +174,23 @@ def nsga2_selection(population, demand, capacity, maintenance_costs, population_
 
     new_population = []
     current_front = 0
-    while len(new_population) + len(fronts[current_front]) <= population_size:
+
+    while current_front < len(fronts) and len(new_population) + len(fronts[current_front]) <= population_size:
         new_population.extend([population[i] for i in fronts[current_front]])
         current_front += 1
 
-    if len(new_population) < population_size:
+    if current_front < len(fronts) and len(new_population) < population_size:
         remaining = population_size - len(new_population)
         last_front = fronts[current_front]
 
-        distances = crowding_distance_assignment(last_front, population, demand, capacity, maintenance_costs)
-
-        sorted_last_front = sorted(zip(last_front, distances), key=lambda x: x[1], reverse=True)
-        selected = [x[0] for x in sorted_last_front[:remaining]]
-        new_population.extend([population[i] for i in selected])
+        if last_front:  # بررسی اینکه جبهه‌ی آخر خالی نباشد
+            distances = crowding_distance_assignment(last_front, population, demand, capacity, maintenance_costs)
+            sorted_last_front = sorted(zip(last_front, distances), key=lambda x: x[1], reverse=True)
+            selected = [x[0] for x in sorted_last_front[:remaining]]
+            new_population.extend([population[i] for i in selected])
 
     return new_population
+
 
 
 def chunk_crossover(parent1, parent2, crossover_rate=0.8, chunk_size=4):
