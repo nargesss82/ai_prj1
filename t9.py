@@ -135,6 +135,9 @@ def fast_non_dominated_sort(population, demand, capacity, maintenance_costs):
 
 
 def crowding_distance_assignment(front, population, demand, capacity, maintenance_costs):
+    if not front:  # Check if front is empty
+        return []
+
     distances = [0] * len(front)
     num_objectives = 2
 
@@ -149,6 +152,9 @@ def crowding_distance_assignment(front, population, demand, capacity, maintenanc
                 objective_values.append((i, min_net_reserve))
             else:
                 objective_values.append((i, -total_cost))
+
+        if not objective_values:  # Check if objective_values is empty
+            continue
 
         objective_values.sort(key=lambda x: x[1])
 
@@ -167,6 +173,7 @@ def crowding_distance_assignment(front, population, demand, capacity, maintenanc
             distances[idx] += (next_val - prev_val) / (max_val - min_val)
 
     return distances
+
 
 
 def nsga2_selection(population, demand, capacity, maintenance_costs, population_size):
