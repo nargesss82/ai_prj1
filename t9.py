@@ -94,6 +94,9 @@ def dominates(a, b):
 
 
 def fast_non_dominated_sort(population, demand, capacity, maintenance_costs):
+    if not population:
+        return [], []
+
     fronts = [[]]
     domination_counts = [0] * len(population)
     dominated_solutions = [[] for _ in range(len(population))]
@@ -101,8 +104,13 @@ def fast_non_dominated_sort(population, demand, capacity, maintenance_costs):
 
     fitness_values = []
     for chrom in population:
+        if not is_valid_chromosome(chrom):
+            # Assign worst possible fitness to invalid chromosomes
+            fitness_values.append((-float('inf'), float('inf')))
+            continue
+
         net_reserves = calculate_net_reserve(chrom, demand, capacity)
-        min_net_reserve = min(net_reserves)
+        min_net_reserve = min(net_reserves) if net_reserves else -float('inf')
         total_cost = calculate_maintenance_cost(chrom, maintenance_costs)
         fitness_values.append((min_net_reserve, -total_cost))
 
@@ -120,7 +128,7 @@ def fast_non_dominated_sort(population, demand, capacity, maintenance_costs):
             fronts[0].append(i)
 
     current_front = 0
-    while fronts[current_front]:
+    while current_front < len(fronts) and fronts[current_front]:
         next_front = []
         for i in fronts[current_front]:
             for j in dominated_solutions[i]:
@@ -129,42 +137,52 @@ def fast_non_dominated_sort(population, demand, capacity, maintenance_costs):
                     ranks[j] = current_front + 1
                     next_front.append(j)
         current_front += 1
-        fronts.append(next_front)
+        if next_front:
+            fronts.append(next_front)
 
     return fronts, ranks
 
 
 def crowding_distance_assignment(front, population, demand, capacity, maintenance_costs):
-    if not front:  # Check if front is empty
-        return []
+    distances = [0.0] * len(front)
 
-    distances = [0] * len(front)
+    if len(front) <= 2:
+        for i in range(len(front)):
+            distances[i] = float('inf')
+        return distances
+
     num_objectives = 2
 
     for m in range(num_objectives):
         objective_values = []
-        for i in front:
-            chrom = population[i]
-            net_reserves = calculate_net_reserve(chrom, demand, capacity)
-            min_net_reserve = min(net_reserves)
-            total_cost = calculate_maintenance_cost(chrom, maintenance_costs)
-            if m == 0:
-                objective_values.append((i, min_net_reserve))
-            else:
-                objective_values.append((i, -total_cost))
+        for idx in front:
+            chrom = population[idx]
+            if not is_valid_chromosome(chrom):
+                objective_values.append((idx, -float('inf') if m == 0 else float('inf')))
+                continue
 
-        if not objective_values:  # Check if objective_values is empty
-            continue
+            net_reserves = calculate_net_reserve(chrom, demand, capacity)
+            min_net_reserve = min(net_reserves) if net_reserves else -float('inf')
+            total_cost = calculate_maintenance_cost(chrom, maintenance_costs)
+
+            if m == 0:
+                objective_values.append((idx, min_net_reserve))
+            else:
+                objective_values.append((idx, -total_cost))
 
         objective_values.sort(key=lambda x: x[1])
 
-        distances[objective_values[0][0]] = float('inf')
-        distances[objective_values[-1][0]] = float('inf')
+        if not objective_values:
+            continue
 
         min_val = objective_values[0][1]
         max_val = objective_values[-1][1]
+
         if max_val == min_val:
             continue
+
+        distances[objective_values[0][0]] = float('inf')
+        distances[objective_values[-1][0]] = float('inf')
 
         for i in range(1, len(objective_values) - 1):
             idx = objective_values[i][0]
@@ -175,28 +193,46 @@ def crowding_distance_assignment(front, population, demand, capacity, maintenanc
     return distances
 
 
-
 def nsga2_selection(population, demand, capacity, maintenance_costs, population_size):
-    fronts, ranks = fast_non_dominated_sort(population, demand, capacity, maintenance_costs)
+    if not population:
+        return generate_population(population_size)
+
+    # First remove invalid solutions
+    valid_population = [chrom for chrom in population if is_valid_chromosome(chrom)]
+    if not valid_population:
+        return generate_population(population_size)
+
+    fronts, ranks = fast_non_dominated_sort(valid_population, demand, capacity, maintenance_costs)
 
     new_population = []
     current_front = 0
 
     while current_front < len(fronts) and len(new_population) + len(fronts[current_front]) <= population_size:
-        new_population.extend([population[i] for i in fronts[current_front]])
+        new_population.extend([valid_population[i] for i in fronts[current_front]])
         current_front += 1
 
-    if current_front < len(fronts) and len(new_population) < population_size:
+    if len(new_population) < population_size and current_front < len(fronts):
         remaining = population_size - len(new_population)
         last_front = fronts[current_front]
 
-        if last_front:  # بررسی اینکه جبهه‌ی آخر خالی نباشد
-            distances = crowding_distance_assignment(last_front, population, demand, capacity, maintenance_costs)
+        if len(last_front) > 0:
+            distances = crowding_distance_assignment(last_front, valid_population, demand, capacity, maintenance_costs)
             sorted_last_front = sorted(zip(last_front, distances), key=lambda x: x[1], reverse=True)
-            selected = [x[0] for x in sorted_last_front[:remaining]]
-            new_population.extend([population[i] for i in selected])
+            selected_indices = [x[0] for x in sorted_last_front[:remaining]]
+            new_population.extend([valid_population[i] for i in selected_indices])
 
-    return new_population
+    # If we still don't have enough solutions, generate new random ones
+    while len(new_population) < population_size:
+        new_population.append(generate_valid_chromosome())
+
+    return new_population[:population_size]
+
+
+
+
+
+
+
 
 
 
