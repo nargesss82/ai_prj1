@@ -1,11 +1,5 @@
 import streamlit as st
 import random
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
-from reportlab.lib.units import inch
-import io
 
 
 # Helper functions (same as before)
@@ -230,87 +224,8 @@ def mutate(chromosome, mutation_rate=0.01, num_plants=7, num_seasons=4):
     return chromosome
 
 
-def create_generation_report(generation_data):
-    """
-    ایجاد گزارش PDF برای نمایش کروموزوم‌ها در هر نسل
-    """
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    styles = getSampleStyleSheet()
-    elements = []
-
-    elements.append(Paragraph("Generation Report - Power Plant Maintenance Scheduling", styles['Title']))
-    elements.append(Spacer(1, 0.25 * inch))
-
-    for gen_data in generation_data:
-        gen_title = f"Generation {gen_data['generation']}"
-        elements.append(Paragraph(gen_title, styles['Heading2']))
-        elements.append(Spacer(1, 0.1 * inch))
-
-        elements.append(Paragraph("Initial Population:", styles['Heading3']))
-        initial_table_data = [["Chromosome", "Fitness"]]
-        for chrom, fit in zip(gen_data['initial_population'], gen_data['initial_fitness']):
-            initial_table_data.append([str(chrom), str(round(fit, 2))])
-
-        initial_table = Table(initial_table_data, colWidths=[4.5 * inch, 0.8 * inch])
-        initial_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(initial_table)
-        elements.append(Spacer(1, 0.1 * inch))
-
-        elements.append(Paragraph("After Crossover:", styles['Heading3']))
-        crossover_table_data = [["Chromosome", "Fitness"]]
-        for chrom, fit in zip(gen_data['after_crossover'], gen_data['crossover_fitness']):
-            crossover_table_data.append([str(chrom), str(round(fit, 2))])
-
-        crossover_table = Table(crossover_table_data, colWidths=[4.5 * inch, 0.8 * inch])
-        crossover_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.lightcyan),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(crossover_table)
-        elements.append(Spacer(1, 0.1 * inch))
-
-        elements.append(Paragraph("After Mutation:", styles['Heading3']))
-        mutation_table_data = [["Chromosome", "Fitness"]]
-        for chrom, fit in zip(gen_data['after_mutation'], gen_data['mutation_fitness']):
-            mutation_table_data.append([str(chrom), str(round(fit, 2))])
-
-        mutation_table = Table(mutation_table_data, colWidths=[4.5 * inch, 0.8 * inch])
-        mutation_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgreen),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.lightyellow),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(mutation_table)
-        elements.append(Spacer(1, 0.25 * inch))
-
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
-
-
 def execute_genetic_algorithm(population_size=50, max_generations=100, mutation_rate=0.01,
-                             w1=1.0000, w2=0.0100, budget=None):
+                              w1=1.0000, w2=0.0100, budget=None):
     demand = [80, 90, 65, 70]
     capacity = [20, 15, 35, 40, 15, 15, 10]
     maintenance_costs = [
@@ -327,7 +242,6 @@ def execute_genetic_algorithm(population_size=50, max_generations=100, mutation_
     population = ensure_valid_population(population, demand, capacity, maintenance_costs, w1, w2, budget)
 
     current_generation = 0
-    generation_data = []
     progress_bar = st.progress(0)
     status_text = st.empty()
     results_container = st.container()
@@ -337,7 +251,6 @@ def execute_genetic_algorithm(population_size=50, max_generations=100, mutation_
         progress_bar.progress(progress)
         status_text.text(f"Generation {current_generation + 1} of {max_generations}")
 
-        initial_population = [chrom[:] for chrom in population]
         initial_fitness = [fitness_function(chrom, demand, capacity, maintenance_costs, w1, w2, budget) for chrom in
                            population]
 
@@ -355,16 +268,8 @@ def execute_genetic_algorithm(population_size=50, max_generations=100, mutation_
             new_population.append(child1)
             new_population.append(child2)
 
-        after_crossover = [chrom[:] for chrom in new_population]
-        crossover_fitness = [fitness_function(chrom, demand, capacity, maintenance_costs, w1, w2, budget) for chrom
-                             in new_population]
-
         for i in range(len(new_population)):
             new_population[i] = mutate(new_population[i], mutation_rate)
-
-        after_mutation = [chrom[:] for chrom in new_population]
-        mutation_fitness = [fitness_function(chrom, demand, capacity, maintenance_costs, w1, w2, budget) for chrom
-                            in new_population]
 
         for i in range(len(new_population)):
             if not is_valid_chromosome(new_population[i]):
@@ -375,17 +280,6 @@ def execute_genetic_algorithm(population_size=50, max_generations=100, mutation_
                 new_population[i] = generate_valid_chromosome()
 
         population = new_population
-
-        generation_data.append({
-            'generation': current_generation + 1,
-            'initial_population': initial_population,
-            'initial_fitness': initial_fitness,
-            'after_crossover': after_crossover,
-            'crossover_fitness': crossover_fitness,
-            'after_mutation': after_mutation,
-            'mutation_fitness': mutation_fitness
-        })
-
         current_generation += 1
 
     progress_bar.empty()
@@ -415,8 +309,6 @@ def execute_genetic_algorithm(population_size=50, max_generations=100, mutation_
             st.write(f"{plant}:")
             st.json(schedule)
 
-    return generation_data
-
 
 def main():
     st.set_page_config(page_title="Power Plant Maintenance Scheduling", layout="wide")
@@ -429,28 +321,20 @@ def main():
         population_size = st.number_input("Population Size", min_value=10, max_value=500, value=50)
         max_generations = st.number_input("Max Generations", min_value=10, max_value=1000, value=100)
         mutation_rate = st.number_input("Mutation Rate", min_value=0.0, max_value=1.0, value=0.01, step=0.01)
-        w1 = st.number_input("w1 (Net Reserve Weight)", min_value=0.0, max_value=10.0, value=1.0, step=0.0001,format="%.4f")
+        w1 = st.number_input("w1 (Net Reserve Weight)", min_value=0.0, max_value=10.0, value=1.0, step=0.0001,
+                             format="%.4f")
         w2 = st.number_input("w2 (Cost Weight)", min_value=0.0, max_value=1.0, value=0.01, step=0.0001, format="%.4f")
         budget = st.number_input("Budget (optional)", min_value=0, value=1000)
 
         if st.button("Run Algorithm"):
             with st.spinner("Running genetic algorithm..."):
-                generation_data = execute_genetic_algorithm(
+                execute_genetic_algorithm(
                     population_size=population_size,
                     max_generations=max_generations,
                     mutation_rate=mutation_rate,
                     w1=w1,
                     w2=w2,
                     budget=budget if budget > 0 else None
-                )
-
-                # Create and download PDF report
-                pdf_buffer = create_generation_report(generation_data)
-                st.download_button(
-                    label="Download Generation Report",
-                    data=pdf_buffer,
-                    file_name="generation_report.pdf",
-                    mime="application/pdf"
                 )
 
     with col2:
@@ -464,15 +348,15 @@ def main():
         | توزن بهتر (بیشنهاد اصلی) | 1    | 0.01   | 2    |
         | تأکید کمی بیشتر بر ذخیره خالص | 1    | 0.005   | 3    |
         | تأکید بیشتر بر کاهش هزینه | 0.5    | 0.001   | 4    |
-        
+
          **نتیجه گیری**  
 
         به اولویت‌های مسئله بستگی دارد w2 و w1 انتخاب مقادیر مناسب  
-        
+
         اگر تأمین برق بسیار حیاتی است: تست 1 یا 3  
 
         اگر توان بین تأمین برق و هزینه مهم است: تست 2 (پیشنهاد اصلی)  
-        
+
         اگر کنترل هزینه‌ها اهمیت بیشتری دارد: تست 4  
 
         برای انتخاب بهترین تنظیم، می‌توانید نتایج هر چهار تست را مقایسه کنید و بیبینید.  
