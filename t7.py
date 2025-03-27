@@ -12,6 +12,8 @@ import io
 def is_valid_chromosome(chromosome, num_plants=7, num_seasons=4):
     """
     بررسی اعتبار کروموزوم بر اساس محدودیت‌های مسئله.
+    نیروگاه‌های ۱ و ۲: دقیقاً یک دوره تعمیر دو فصل متوالی
+    نیروگاه‌های ۳ تا ۷: دقیقاً یک فصل تعمیر
     """
     if all(bit == 0 for bit in chromosome):
         return False
@@ -22,32 +24,40 @@ def is_valid_chromosome(chromosome, num_plants=7, num_seasons=4):
         season_bits = chromosome[start_index:end_index]
 
         if plant < 2:  # نیروگاه‌های ۱ و ۲
-            if sum(season_bits) == 0:
-                continue
             if sum(season_bits) != 2:
                 return False
-            consecutive_pairs = [
-                (season_bits[0], season_bits[1]),
-                (season_bits[1], season_bits[2]),
-                (season_bits[2], season_bits[3]),
-                (season_bits[3], season_bits[0])
-            ]
-            if not any(pair == (1, 1) for pair in consecutive_pairs):
+            # بررسی متوالی بودن دو فصل تعمیر
+            consecutive = False
+            for i in range(num_seasons):
+                if season_bits[i] == 1 and season_bits[(i + 1) % num_seasons] == 1:
+                    consecutive = True
+                    break
+            if not consecutive:
                 return False
         else:  # نیروگاه‌های ۳ تا ۷
-            if sum(season_bits) > 1:
+            if sum(season_bits) != 1:
                 return False
     return True
 
 
 def generate_valid_chromosome(num_plants=7, num_seasons=4):
     """
-    تولید یک کروموزوم معتبر.
+    تولید یک کروموزوم معتبر که تمام نیروگاه‌ها تعمیر شوند.
     """
-    while True:
-        chromosome = [random.randint(0, 1) for _ in range(num_plants * num_seasons)]
-        if is_valid_chromosome(chromosome):
-            return chromosome
+    chromosome = [0] * (num_plants * num_seasons)
+
+    # برای نیروگاه‌های ۱ و ۲: انتخاب دو فصل متوالی برای تعمیر
+    for plant in range(2):
+        start_season = random.randint(0, num_seasons - 1)
+        chromosome[plant * num_seasons + start_season] = 1
+        chromosome[plant * num_seasons + (start_season + 1) % num_seasons] = 1
+
+    # برای نیروگاه‌های ۳ تا ۷: انتخاب یک فصل تصادفی برای تعمیر
+    for plant in range(2, num_plants):
+        season = random.randint(0, num_seasons - 1)
+        chromosome[plant * num_seasons + season] = 1
+
+    return chromosome
 
 
 def generate_population(population_size=50, num_plants=7, num_seasons=4):
@@ -177,18 +187,21 @@ def chunk_crossover(parent1, parent2, crossover_rate=0.8, chunk_size=4):
 
 def ensure_valid_child(child, demand, capacity, maintenance_costs, w1, w2, budget, penalty=10000):
     """
-    اطمینان از معتبر بودن کروموزوم فرزند.
+    اطمینان از معتبر بودن کروموزوم فرزند با رعایت تمام محدودیت‌ها
     """
     while True:
+        # بررسی اعتبار ساختاری
         if not is_valid_chromosome(child):
             child = generate_valid_chromosome()
             continue
 
+        # بررسی کفایت ذخیره انرژی
         net_reserves = calculate_net_reserve(child, demand, capacity)
         if min(net_reserves) < 0:
             child = generate_valid_chromosome()
             continue
 
+        # بررسی بودجه
         total_maintenance_cost = calculate_maintenance_cost(child, maintenance_costs)
         if budget is not None and total_maintenance_cost > budget:
             child = generate_valid_chromosome()
